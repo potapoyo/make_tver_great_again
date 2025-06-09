@@ -7,6 +7,9 @@
 	"name": "make-tver-great-again",
 	"main": "src/index.ts",
 	"compatibility_date": "2025-06-07",
+	"routes": [
+		{ "pattern": "mtga.potapoyo.com", "custom_domain": true }
+	],
 	"observability": {
 		"enabled": true
 	}
