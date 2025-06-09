@@ -11,6 +11,39 @@ export default {
 				}
 				const episodeId = episodeIdMatch[1];
 
+				// 1. TVerのページを取得してbuildIdを取得
+				const pageResponse = await fetch(tverUrl);
+				const pageText = await pageResponse.text();
+				const buildIdMatch = pageText.match(/"buildId":"([a-zA-Z0-9_-]+)"/);
+				if (!buildIdMatch) {
+					return new Response('Could not find buildId on TVer page.', { status: 500 });
+				}
+				const buildId = buildIdMatch[1];
+
+				// 2. _next/data/ からJSONデータを取得
+				const nextDataResponse = await fetch(`https://tver.jp/_next/data/${buildId}/episodes/${episodeId}.json`);
+				if (!nextDataResponse.ok) {
+					return new Response(`Failed to fetch _next/data. Status: ${nextDataResponse.status}`, { status: 500 });
+				}
+
+				type NextData = {
+					pageProps?: {
+						episode?: {
+							video: {
+								id: string;
+								account_id: string;
+								token: string;
+							};
+						};
+					};
+				};
+				const nextData = (await nextDataResponse.json()) as NextData;
+
+				const episode = nextData?.pageProps?.episode;
+				if (!episode) {
+					return new Response('Could not find episode data in _next/data json.', { status: 500 });
+				}
+
 				type EpisodeData = {
 					video: {
 						id: string;
@@ -18,22 +51,14 @@ export default {
 					};
 					token: string;
 				};
-				const episodeResponse = await fetch(`https://api.tver.jp/v2/episodes/${episodeId}`, {
-					headers: {
-						'x-tver-platform-type': 'web',
-						'Origin': 'https://tver.jp',
-						'Referer': 'https://tver.jp/',
+				// 3. 取得したデータから必要な情報を抽出
+				const episodeData: EpisodeData = {
+					video: {
+						id: episode.video.id,
+						account_id: episode.video.account_id,
 					},
-				});
-
-				if (!episodeResponse.ok) {
-					const errorText = await episodeResponse.text();
-					return new Response(`Failed to fetch episode data from TVer API. Status: ${episodeResponse.status}, Body: ${errorText}`, {
-						status: 500,
-					});
-				}
-
-				const episodeData = (await episodeResponse.json()) as EpisodeData;
+					token: episode.video.token,
+				};
 				const videoId = episodeData.video.id;
 
 				if (!episodeData.video.account_id || !videoId || !episodeData.token) {
