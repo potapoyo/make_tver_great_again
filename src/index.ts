@@ -21,6 +21,8 @@ export default {
 				const episodeResponse = await fetch(`https://api.tver.jp/v2/episodes/${episodeId}`, {
 					headers: {
 						'x-tver-platform-type': 'web',
+						'Origin': 'https://tver.jp',
+						'Referer': 'https://tver.jp/',
 					},
 				});
 
@@ -43,6 +45,7 @@ export default {
 					{
 						headers: {
 							Accept: 'application/json;pk=BCpkADawqM13qhq60TadJ6iG3U1yZAF_rq-xJs042_syn6Gv_B0o5O7U_YgX12vhfV_2-O8f_2B1iHn3K26eZ1qS_gIjmHh2bJ_pYT2-1R2dY-1jY-ZkE_8Y-ZkE_8Y-ZkE_8',
+							'Origin': 'https://tver.jp',
 						},
 					},
 				);
