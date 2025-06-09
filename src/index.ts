@@ -21,7 +21,7 @@ ${videoUrl}`;
 <!DOCTYPE html>
 <html>
 <head>
-  <title>TVer M3U8 Merger</title>
+  <title>MAKE TVER GREAT AGAIN</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     body { font-family: sans-serif; margin: 2em; background-color: #f0f0f0; }
@@ -34,7 +34,7 @@ ${videoUrl}`;
 </head>
 <body>
   <div class="container">
-    <h1>TVer M3U8 Merger</h1>
+    <h1>MAKE TVER GREAT AGAIN</h1>
     <p>動画と音声のm3u8リンクを1つにまとめます。</p>
     <label for="video-url">動画URL:</label>
     <input type="text" id="video-url" placeholder="https://...">
