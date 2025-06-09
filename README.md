@@ -1,4 +1,4 @@
-# TVer M3U8 Merger
+# make-tver-great-again
 
 TVerの動画と音声のm3u8リンクを1つに統合するためのCloudflare Workersアプリケーションです。
 
