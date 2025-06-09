@@ -23,6 +23,14 @@ export default {
 						'x-tver-platform-type': 'web',
 					},
 				});
+
+				if (!episodeResponse.ok) {
+					const errorText = await episodeResponse.text();
+					return new Response(`Failed to fetch episode data from TVer API. Status: ${episodeResponse.status}, Body: ${errorText}`, {
+						status: 500,
+					});
+				}
+
 				const episodeData = (await episodeResponse.json()) as EpisodeData;
 				const videoId = episodeData.video.id;
 
