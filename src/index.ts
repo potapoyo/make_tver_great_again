@@ -1,20 +1,63 @@
 export default {
 	async fetch(request: Request): Promise<Response> {
 		const url = new URL(request.url);
-		const videoUrl = url.searchParams.get('video');
-		const audioUrl = url.searchParams.get('audio');
+		const tverUrl = url.searchParams.get('tver');
 
-		if (videoUrl && audioUrl) {
-			const m3u8 = `#EXTM3U
+		if (tverUrl) {
+			try {
+				const tverPageResponse = await fetch(tverUrl);
+				const tverPageText = await tverPageResponse.text();
+				const nextDataMatch = tverPageText.match(/<script id="__NEXT_DATA__" type="application\/json">(.+?)<\/script>/);
+				if (!nextDataMatch) {
+					return new Response('Could not find __NEXT_DATA__ in TVer page', { status: 500 });
+				}
+				const nextData = JSON.parse(nextDataMatch[1]);
+				const episodeId = nextData.props.pageProps.episode.id;
+
+				type EpisodeData = {
+					video: {
+						id: string;
+						account_id: string;
+					};
+					token: string;
+				};
+				const episodeResponse = await fetch(`https://api.tver.jp/v2/episodes/${episodeId}`, {
+					headers: {
+						'x-tver-platform-type': 'web',
+					},
+				});
+				const episodeData = (await episodeResponse.json()) as EpisodeData;
+				const videoId = episodeData.video.id;
+
+				const manifestResponse = await fetch(
+					`https://manifest.prod.boltdns.net/manifest/v1/hls/v4/clear/${episodeData.video.account_id}/${videoId}?tver_token=${episodeData.token}`,
+					{
+						headers: {
+							Accept: 'application/json;pk=BCpkADawqM13qhq60TadJ6iG3U1yZAF_rq-xJs042_syn6Gv_B0o5O7U_YgX12vhfV_2-O8f_2B1iHn3K26eZ1qS_gIjmHh2bJ_pYT2-1R2dY-1jY-ZkE_8Y-ZkE_8Y-ZkE_8',
+						},
+					},
+				);
+				type ManifestData = {
+					sources: { src: string }[];
+				};
+				const manifestData = (await manifestResponse.json()) as ManifestData;
+
+				const videoUrl = manifestData.sources.find((s) => s.src.includes('video'))?.src;
+				const audioUrl = manifestData.sources.find((s) => s.src.includes('audio'))?.src;
+
+				const m3u8 = `#EXTM3U
 #EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="Audio",DEFAULT=YES,AUTOSELECT=YES,URI="${audioUrl}"
 #EXT-X-STREAM-INF:BANDWIDTH=8000000,AUDIO="audio",CODECS="avc1.640028,mp4a.40.2"
 ${videoUrl}`;
 
-			return new Response(m3u8, {
-				headers: {
-					'Content-Type': 'application/vnd.apple.mpegurl',
-				},
-			});
+				return new Response(m3u8, {
+					headers: {
+						'Content-Type': 'application/vnd.apple.mpegurl',
+					},
+				});
+			} catch (e: any) {
+				return new Response(e.stack, { status: 500 });
+			}
 		}
 
 		const html = `
@@ -35,24 +78,21 @@ ${videoUrl}`;
 <body>
   <div class="container">
     <h1>MAKE TVER GREAT AGAIN</h1>
-    <p>動画と音声のm3u8リンクを1つにまとめます。</p>
-    <label for="video-url">動画URL:</label>
-    <input type="text" id="video-url" placeholder="https://...">
-    <label for="audio-url">音声URL:</label>
-    <input type="text" id="audio-url" placeholder="https://...">
+    <p>TVerの番組ページのURLを入力すると、動画と音声を結合したm3u8ファイルへのリンクを生成します。</p>
+    <label for="tver-url">TVer番組URL:</label>
+    <input type="text" id="tver-url" placeholder="https://tver.jp/episodes/...">
     <button onclick="generateUrl()">生成</button>
     <div id="result"></div>
   </div>
   <script>
     function generateUrl() {
-      const videoUrl = document.getElementById('video-url').value;
-      const audioUrl = document.getElementById('audio-url').value;
-      if (!videoUrl || !audioUrl) {
-        alert('動画と音声の両方のURLを入力してください。');
+      const tverUrl = document.getElementById('tver-url').value;
+      if (!tverUrl) {
+        alert('TVerの番組URLを入力してください。');
         return;
       }
       const currentUrl = new URL(window.location.href);
-      const resultUrl = \`\${currentUrl.origin}\${currentUrl.pathname}?video=\${encodeURIComponent(videoUrl)}&audio=\${encodeURIComponent(audioUrl)}\`;
+      const resultUrl = \`\${currentUrl.origin}\${currentUrl.pathname}?tver=\${encodeURIComponent(tverUrl)}\`;
       
       const resultDiv = document.getElementById('result');
       resultDiv.innerHTML = \`
