@@ -6,19 +6,34 @@ import worker from '../src/index';
 // `Request` to pass to `worker.fetch()`.
 const IncomingRequest = Request<unknown, IncomingRequestCfProperties>;
 
-describe('Hello World worker', () => {
-	it('responds with Hello World! (unit style)', async () => {
-		const request = new IncomingRequest('http://example.com');
-		// Create an empty context to pass to `worker.fetch()`.
+describe('TVer m3u8 generator', () => {
+	it('should return a combined m3u8 file from a Tver URL', async () => {
+		const tverUrl = 'https://tver.jp/episodes/ep6ykhvl0jb';
+		const request = new IncomingRequest(`http://example.com?tver=${encodeURIComponent(tverUrl)}`);
 		const ctx = createExecutionContext();
 		const response = await worker.fetch(request, env, ctx);
-		// Wait for all `Promise`s passed to `ctx.waitUntil()` to settle before running test assertions
 		await waitOnExecutionContext(ctx);
-		expect(await response.text()).toMatchInlineSnapshot(`"Hello World!"`);
-	});
 
-	it('responds with Hello World! (integration style)', async () => {
-		const response = await SELF.fetch('https://example.com');
-		expect(await response.text()).toMatchInlineSnapshot(`"Hello World!"`);
+		const responseText = await response.text();
+		if (response.headers.get('Content-Type') !== 'application/vnd.apple.mpegurl') {
+			console.error('Unexpected response body:', responseText);
+		}
+
+		expect(response.headers.get('Content-Type')).toBe('application/vnd.apple.mpegurl');
+		expect(responseText).toContain('#EXTM3U');
+		expect(responseText).toContain('#EXT-X-MEDIA:TYPE=AUDIO');
+		expect(responseText).toContain('video');
+		expect(responseText).toContain('audio');
+	}, 30000); // タイムアウトを30秒に設定
+
+	it('should return the HTML page when no tver url is provided', async () => {
+		const request = new IncomingRequest('http://example.com');
+		const ctx = createExecutionContext();
+		const response = await worker.fetch(request, env, ctx);
+		await waitOnExecutionContext(ctx);
+
+		expect(response.headers.get('Content-Type')).toBe('text/html;charset=UTF-8');
+		const responseText = await response.text();
+		expect(responseText).toContain('<h1>MAKE TVER GREAT AGAIN</h1>');
 	});
 });

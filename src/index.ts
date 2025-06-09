@@ -1,18 +1,15 @@
 export default {
-	async fetch(request: Request): Promise<Response> {
+	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
 		const url = new URL(request.url);
 		const tverUrl = url.searchParams.get('tver');
 
 		if (tverUrl) {
 			try {
-				const tverPageResponse = await fetch(tverUrl);
-				const tverPageText = await tverPageResponse.text();
-				const nextDataMatch = tverPageText.match(/<script id="__NEXT_DATA__" type="application\/json">(.+?)<\/script>/);
-				if (!nextDataMatch) {
-					return new Response('Could not find __NEXT_DATA__ in TVer page', { status: 500 });
+				const episodeIdMatch = tverUrl.match(/\/episodes\/([a-zA-Z0-9]+)/);
+				if (!episodeIdMatch) {
+					return new Response('Invalid TVer URL. Could not find episode ID.', { status: 400 });
 				}
-				const nextData = JSON.parse(nextDataMatch[1]);
-				const episodeId = nextData.props.pageProps.episode.id;
+				const episodeId = episodeIdMatch[1];
 
 				type EpisodeData = {
 					video: {
@@ -29,6 +26,10 @@ export default {
 				const episodeData = (await episodeResponse.json()) as EpisodeData;
 				const videoId = episodeData.video.id;
 
+				if (!episodeData.video.account_id || !videoId || !episodeData.token) {
+					return new Response('Failed to get required video parameters from episode API', { status: 500 });
+				}
+
 				const manifestResponse = await fetch(
 					`https://manifest.prod.boltdns.net/manifest/v1/hls/v4/clear/${episodeData.video.account_id}/${videoId}?tver_token=${episodeData.token}`,
 					{
@@ -44,6 +45,10 @@ export default {
 
 				const videoUrl = manifestData.sources.find((s) => s.src.includes('video'))?.src;
 				const audioUrl = manifestData.sources.find((s) => s.src.includes('audio'))?.src;
+
+				if (!videoUrl || !audioUrl) {
+					return new Response('Could not find video or audio URL in manifest', { status: 500 });
+				}
 
 				const m3u8 = `#EXTM3U
 #EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="Audio",DEFAULT=YES,AUTOSELECT=YES,URI="${audioUrl}"
