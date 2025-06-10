@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TVer Master Playlist Fetcher</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .container {
+      text-align: center;
+    }
+    input {
+      width: 400px;
+      padding: 8px;
+      margin-bottom: 10px;
+    }
+    button {
+      padding: 8px 16px;
+    }
+    #result {
+      margin-top: 20px;
+      word-break: break-all;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>TVer Master Playlist Fetcher</h1>
+    <input type="text" id="tver-url" placeholder="https://tver.jp/episodes/...">
+    <button id="fetchButton">取得</button>
+    <div id="result"></div>
+  </div>
+  <script src="/assets/main.js"></script>
+</body>
+</html>
