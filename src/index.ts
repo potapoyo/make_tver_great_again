@@ -1,5 +1,5 @@
-import indexHtml from './index.html';
-import mainJs from './assets/main.js';
+import indexHtml from './index.html?raw';
+import mainJs from './assets/main.js?raw';
 
 export default {
 	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
