@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TVer .m3u8 Link Extractor</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        .container {
+            text-align: center;
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        input[type="text"] {
+            width: 400px;
+            padding: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        button {
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+        }
+        #result {
+            margin-top: 1rem;
+            word-break: break-all;
+            background-color: #eee;
+            padding: 1rem;
+            border-radius: 4px;
+            min-height: 50px;
+        }
+        #copyButtonContainer {
+            margin-top: 1rem;
+            text-align: center;
+            display: none; /* Initially hidden */
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>TVer .m3u8 Link Extractor</h1>
+        <p>TVerの動画ページのURLを貼り付けてください。</p>
+        <input type="text" id="tverUrl" placeholder="https://tver.jp/episodes/...">
+        <button onclick="getM3u8Link()">リンクを取得</button>
+        <div id="result"></div>
+        <div id="copyButtonContainer">
+            <button onclick="copyToClipboard()">クリップボードにコピー</button>
+        </div>
+    </div>
+
+    <script>
+        const resultDiv = document.getElementById('result');
+        const copyButtonContainer = document.getElementById('copyButtonContainer');
+
+        function copyToClipboard() {
+            if (resultDiv.textContent) {
+                navigator.clipboard.writeText(resultDiv.textContent).then(() => {
+                    alert('クリップボードにコピーしました！');
+                }, (err) => {
+                    alert('コピーに失敗しました: ', err);
+                });
+            }
+        }
+
+        async function getM3u8Link() {
+            const tverUrl = document.getElementById('tverUrl').value;
+            resultDiv.textContent = '取得中...';
+            copyButtonContainer.style.display = 'none';
+
+            // ここにAPI GatewayのエンドポイントURLを設定します
+            const apiUrl = 'https://zv18ujsucf.execute-api.ap-northeast-1.amazonaws.com';
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ url: tverUrl })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                if (data.m3u8_url) {
+                    resultDiv.textContent = data.m3u8_url;
+                    copyButtonContainer.style.display = 'block';
+                } else {
+                    resultDiv.textContent = 'm3u8リンクが見つかりませんでした。';
+                }
+
+            } catch (error) {
+                console.error('Error:', error);
+                resultDiv.textContent = 'エラーが発生しました。';
+            }
+        }
+    </script>
+</body>
+</html>
