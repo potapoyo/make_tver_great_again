@@ -3,7 +3,7 @@ from main import lambda_handler
 
 if __name__ == "__main__":
     # テストしたいTVerのURL
-    test_tver_url = "https://tver.jp/episodes/epkpj0if59"
+    test_tver_url = "https://tver.jp/episodes/ep6ykhvl0jb"
 
     # API Gatewayからのリクエストを模したテストイベントを作成
     # 実際のAPI Gateway (HTTP API)からのリクエストボディは文字列化されている

@@ -11,14 +11,26 @@ provider "aws" {
   region = "ap-northeast-1" # 東京リージョン
 }
 
-# バケット名をユニークにするためのランダムなID
-resource "random_id" "id" {
-  byte_length = 8
+# 1. フロントエンド用S3バケット (静的ウェブサイトホスティング)
+resource "aws_s3_bucket" "frontend_bucket" {
+  bucket = "vrc-link-tver.potapoyo.com"
 }
 
-# 1. フロントエンド用S3バケット (プライベート)
-resource "aws_s3_bucket" "frontend_bucket" {
-  bucket = "tver-m3u8-extractor-frontend-${random_id.id.hex}"
+resource "aws_s3_bucket_website_configuration" "frontend_website" {
+  bucket = aws_s3_bucket.frontend_bucket.id
+
+  index_document {
+    suffix = "index.html"
+  }
+}
+
+resource "aws_s3_bucket_public_access_block" "public_access" {
+  bucket = aws_s3_bucket.frontend_bucket.id
+
+  block_public_acls       = false
+  block_public_policy     = false
+  ignore_public_acls      = false
+  restrict_public_buckets = false
 }
 
 # S3バケットのコンテンツ
@@ -30,78 +42,25 @@ resource "aws_s3_object" "index" {
   etag         = filemd5("../frontend/index.html")
 }
 
-# 2. CloudFront (HTTPS配信)
-resource "aws_cloudfront_origin_access_control" "oac" {
-  name                              = "OAC for ${aws_s3_bucket.frontend_bucket.id}"
-  description                       = "Origin Access Control for S3 bucket"
-  origin_access_control_origin_type = "s3"
-  signing_behavior                  = "always"
-  signing_protocol                  = "sigv4"
-}
-
-resource "aws_cloudfront_distribution" "s3_distribution" {
-  origin {
-    domain_name              = aws_s3_bucket.frontend_bucket.bucket_regional_domain_name
-    origin_access_control_id = aws_cloudfront_origin_access_control.oac.id
-    origin_id                = "S3-${aws_s3_bucket.frontend_bucket.id}"
-  }
-
-  enabled             = true
-  is_ipv6_enabled     = true
-  default_root_object = "index.html"
-
-  default_cache_behavior {
-    allowed_methods  = ["GET", "HEAD", "OPTIONS"]
-    cached_methods   = ["GET", "HEAD"]
-    target_origin_id = "S3-${aws_s3_bucket.frontend_bucket.id}"
-
-    forwarded_values {
-      query_string = false
-      cookies {
-        forward = "none"
-      }
-    }
-
-    viewer_protocol_policy = "redirect-to-https"
-    min_ttl                = 0
-    default_ttl            = 3600
-    max_ttl                = 86400
-  }
-
-  restrictions {
-    geo_restriction {
-      restriction_type = "none"
-    }
-  }
-
-  viewer_certificate {
-    cloudfront_default_certificate = true
-  }
-}
-
-# S3バケットポリシー (CloudFrontからのアクセスのみ許可)
+# S3バケットポリシー（パブリックアクセスを許可）
 resource "aws_s3_bucket_policy" "bucket_policy" {
   bucket = aws_s3_bucket.frontend_bucket.id
+  depends_on = [aws_s3_bucket_public_access_block.public_access]
   policy = jsonencode({
-    Version = "2012-10-17",
+    Version = "2012-10-17"
     Statement = [
       {
-        Effect    = "Allow",
-        Principal = { Service = "cloudfront.amazonaws.com" },
-        Action    = "s3:GetObject",
-        Resource  = "${aws_s3_bucket.frontend_bucket.arn}/*",
-        Condition = {
-          StringEquals = {
-            "AWS:SourceArn" = aws_cloudfront_distribution.s3_distribution.arn
-          }
-        }
+        Effect    = "Allow"
+        Principal = "*"
+        Action    = "s3:GetObject"
+        Resource  = "${aws_s3_bucket.frontend_bucket.arn}/*"
       }
     ]
   })
 }
 
 
-# 3. Lambda & API Gateway (変更なし)
+# 2. Lambda & API Gateway (変更なし)
 
 # Lambda関数用のIAMロール
 resource "aws_iam_role" "lambda_exec_role" {
@@ -155,7 +114,7 @@ resource "aws_apigatewayv2_api" "http_api" {
   name          = "tver-m3u8-api"
   protocol_type = "HTTP"
   cors_configuration {
-    allow_origins = ["*"]
+    allow_origins = ["https://vrc-link-tver.potapoyo.com"] # ユーザーのドメインに限定
     allow_methods = ["POST", "OPTIONS"]
     allow_headers = ["Content-Type"]
   }
@@ -187,12 +146,13 @@ resource "aws_lambda_permission" "api_gw_permission" {
   source_arn    = "${aws_apigatewayv2_api.http_api.execution_arn}/*/*"
 }
 
-# 4. 出力
-output "website_url" {
-  description = "The HTTPS URL for the website, served by CloudFront."
-  value       = "https://${aws_cloudfront_distribution.s3_distribution.domain_name}"
+# 3. 出力
+output "s3_website_endpoint" {
+  description = "The S3 static website endpoint URL. Use this for your Cloudflare CNAME record."
+  value       = aws_s3_bucket_website_configuration.frontend_website.website_endpoint
 }
 
 output "api_endpoint" {
-  value = aws_apigatewayv2_api.http_api.api_endpoint
+  description = "The API Gateway endpoint URL. Your frontend will call this."
+  value       = aws_apigatewayv2_api.http_api.api_endpoint
 }
